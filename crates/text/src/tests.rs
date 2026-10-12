@@ -395,3 +395,22 @@ fn hostile_bidi_input_never_panics() {
         }
     }
 }
+
+#[test]
+fn emoji_take_a_colour_face_when_one_is_installed() {
+    // PowerPoint draws emoji (and ZWJ sequences, skin tones, flags) from the colour emoji font
+    // even when the run's font has a plain glyph for some of them. Skipped without an installed
+    // colour emoji font.
+    let db = FontDb::global();
+    let probe = db.cascade(&['😀'], &[], "Regular");
+    if !probe.is_color() {
+        return;
+    }
+    for s in ["😀", "👍🏽", "❤\u{FE0F}", "👨\u{200D}👩\u{200D}👧"] {
+        let (p, sh) = bidi_setup(vec![Run::new(format!("a{s}b"))], 2000.0, false, Align::Left);
+        let l = lay(&p, &sh, 2000.0, 300.0);
+        let emoji = l.runs.iter().find(|r| r.cells.iter().any(|(_, c)| !c.is_ascii())).unwrap();
+        assert!(emoji.face.is_color(), "{s:?} drawn with {}", emoji.face.family);
+        assert!(l.runs.iter().filter(|r| r.cells.iter().all(|(_, c)| c.is_ascii())).all(|r| !r.face.is_color()), "the letters keep a text face");
+    }
+}
