@@ -37,6 +37,13 @@ pub fn fill_path(
             }
             let mut stops: Vec<(f64, Rgba)> = g.stops.iter().map(|s| (s.pos.clamp(0.0, 1.0), shade(rctx.color(&s.color, ph), mode))).collect();
             stops.sort_by(|a, b| a.0.total_cmp(&b.0));
+            // Rectangle and outline paths: rasterised (see `pathgrad`).
+            if let GradientShape::Path { path: kind, focus } = &g.shape
+                && matches!(kind.as_str(), "rect" | "shape")
+            {
+                crate::pathgrad::fill(ctx, kind, *focus, &crate::ramp::expand(&stops), bounds, path, m, alpha);
+                return;
+            }
             // PowerPoint's ramp between stops (linear light, S-shaped), see `ramp`.
             let stops: Vec<peniko::ColorStop> =
                 crate::ramp::expand(&stops).into_iter().map(|(o, c)| peniko::ColorStop { offset: o as f32, color: color(c, alpha).into() }).collect();
