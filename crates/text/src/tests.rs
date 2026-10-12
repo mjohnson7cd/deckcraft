@@ -395,3 +395,25 @@ fn hostile_bidi_input_never_panics() {
         }
     }
 }
+
+#[test]
+fn a_bullet_the_text_font_lacks_falls_back_to_a_face_that_has_it() {
+    // circleNumDbPlain numbers ①②…: the text font usually has no circled digits; PowerPoint draws
+    // them from a fallback font instead of a missing-glyph box. Skipped when no installed or
+    // bundled face has ①.
+    let db = FontDb::global();
+    if !db.cascade(&['①'], &[], "Regular").covers('①') {
+        return;
+    }
+    let (p, mut sh) = setup("One\nTwo", 600.0, 300.0);
+    for para in &mut sh.text.as_mut().unwrap().paragraphs {
+        para.props.bullet = Some(Bullet::AutoNum { scheme: "circleNumDbPlain".into(), start_at: 1 });
+    }
+    let l = lay(&p, &sh, 600.0, 300.0);
+    let bullets: Vec<_> = l.runs.iter().filter(|r| r.cells.is_empty()).collect();
+    assert_eq!(bullets.len(), 2);
+    for b in bullets {
+        assert!(b.face.covers('①'), "drawn with {}, which lacks the circled digit", b.face.family);
+        assert!(b.glyphs.iter().all(|g| g.0 != 0), "no missing-glyph box");
+    }
+}
