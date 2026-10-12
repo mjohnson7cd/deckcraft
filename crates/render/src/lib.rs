@@ -12,6 +12,7 @@ mod images;
 mod morph_path;
 mod morph_text;
 mod paint;
+mod pattern;
 mod placed;
 mod table;
 
