@@ -730,3 +730,17 @@ fn date_fields_keep_their_type_and_saved_text() {
         assert_eq!(by_name(&q.slides[0], name).text, by_name(&p.slides[0], name).text, "{name}");
     }
 }
+
+#[test]
+fn line_break_options_round_trip() {
+    let mut p = defaults::new_presentation(None);
+    let first = p.slides[0].id;
+    let s = p.slide_mut(first).expect("slide");
+    let t = s.shapes[0].text.insert(TextBody::from_text("x"));
+    t.paragraphs[0].props.latin_line_break = Some(true);
+    t.paragraphs[0].props.hanging_punct = Some(false);
+    let q = round(&p);
+    let props = &q.slides[0].shapes[0].text.as_ref().expect("text").paragraphs[0].props;
+    assert_eq!(props.latin_line_break, Some(true));
+    assert_eq!(props.hanging_punct, Some(false));
+}
