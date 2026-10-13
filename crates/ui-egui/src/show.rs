@@ -169,12 +169,11 @@ impl Show {
 
     /// On entering a slide: auto-play its first step when it begins With/After Previous.
     fn after_enter(&mut self, doc: &Presentation, now: f64) {
-        let auto = self.timeline(doc).step_is_auto(0);
-        if auto || self.autoplay {
-            let a = self.state.next(doc);
-            if matches!(a, ShowAction::PlayStep(_)) {
-                self.step_start = now;
-            }
+        if self.state.playing {
+            // `ShowState::enter` already started the automatic step 0; `next()` would finish it (#631).
+            self.step_start = now;
+        } else if self.autoplay && matches!(self.state.next(doc), ShowAction::PlayStep(_)) {
+            self.step_start = now;
         }
     }
 }
@@ -884,5 +883,31 @@ mod tests {
         assert_eq!(tr.old.as_ref().map(TextureHandle::id), Some(red.id()));
         assert_eq!(tr.from, Some(0));
         assert!(show.tex.is_none(), "the new slide gets a texture of its own instead of overwriting the old one");
+    }
+
+    #[test]
+    fn a_first_after_previous_animation_plays_on_entering_the_slide() {
+        // #631: `enter` started the automatic step 0 and `after_enter` then called `next()`,
+        // which finished it, so the slide appeared fully built.
+        for start in ["afterPrevious", "withPrevious"] {
+            let mut s = deckcraft_engine::Session::with_new();
+            s.execute("slide.new", &json!({})).unwrap();
+            let id = s.execute("shape.insert", &json!({"preset": "rect", "rect": [10, 10, 100, 100]})).unwrap()["id"].clone();
+            s.execute("animation.add", &json!({"effect": "fade", "start": start, "duration": 3000, "ids": [id]})).unwrap();
+            let doc = s.active().unwrap().doc.clone();
+            assert!(ShowState::timeline(&doc, 1).step_is_auto(0), "{start}: test setup");
+
+            // Show started on the slide.
+            let mut show = Show::new(&doc, 1, false, false);
+            show.after_enter(&doc, 5.0);
+            assert_eq!((show.state.step, show.state.playing, show.step_start), (0, true, 5.0), "{start}: show start");
+
+            // Entered from the previous slide.
+            let mut show = Show::new(&doc, 0, false, false);
+            let a = show.state.next(&doc);
+            assert_eq!(a, ShowAction::Slide(1));
+            assert!(show.apply(a, &doc, 7.0));
+            assert_eq!((show.state.step, show.state.playing, show.step_start), (0, true, 7.0), "{start}: from previous");
+        }
     }
 }
