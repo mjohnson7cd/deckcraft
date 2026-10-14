@@ -165,12 +165,11 @@ impl Show {
 
     /// On entering a slide: auto-play its first step when it begins With/After Previous.
     fn after_enter(&mut self, doc: &Presentation, now: f64) {
-        let auto = self.timeline(doc).step_is_auto(0);
-        if auto || self.autoplay {
-            let a = self.state.next(doc);
-            if matches!(a, ShowAction::PlayStep(_)) {
-                self.step_start = now;
-            }
+        if self.state.playing {
+            // ShowState::enter already started the automatic step 0: just start its clock.
+            self.step_start = now;
+        } else if self.autoplay && matches!(self.state.next(doc), ShowAction::PlayStep(_)) {
+            self.step_start = now;
         }
     }
 }
